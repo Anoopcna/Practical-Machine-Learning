@@ -1,0 +1,119 @@
+#Practical Machine Learning -Project Writeup
+
+###STEPS
+#### 1 :Load all the required packages
+#### 2 :Load both the Dataset into R
+#### 3 :Check variability of each independent variable
+#### 4 :Check percentage of not available Data for each independent variable.
+#### 5 :Dividing the training dataset into further Train and test Dataset.
+#### 6 :Check the Corelation between the independent variable and the dependent variable for model selection.
+#### 7 :Apply two models Boosting and Random Forest.
+#### 8 :Apply the Best model on the 20 Scenarios in the Evaluation/test Dataset.
+
+STEP 1:
+```{r}
+library(caret)
+library(randomForest)
+
+```
+
+STEP 2:
+
+```{r}
+Evaluation_data=read.csv(file="pml-testing.csv",sep=",",header=TRUE,na.strings=c("#DIV/0!"))
+
+Training_data=read.csv(file="pml-training.csv",sep=",",header=TRUE,na.strings=c("#DIV/0!"))
+
+```
+
+STEP 3:
+```{r}
+##Consider only those variables which are populated enough and is variable too.
+nsv <- nearZeroVar(Training_data, saveMetrics = T)
+Model_data <- Training_data[, !nsv$nzv]
+```
+
+Since certain variables have very less variablity,its most unlikely that they will have significance in prediction of the
+dependent variable(Classe)
+
+STEP 4:
+
+```{r}
+nav=sapply(colnames(Model_data), function(x) if(sum(is.na(Model_data[, x])) > 0.8*nrow(Model_data)){return(T)}else{return(F)})
+Model_data=Model_data[,!nav]
+```
+
+Remove Variables which have more than 80% of the data as null since they are very sparcely populated,doesnt makes sense in adding them to the model.
+
+
+STEP 5:
+
+```{r}
+idx <- createDataPartition(y=Model_data$classe, p=0.75, list=FALSE )
+train <- Model_data[idx,]
+test <- Model_data[-idx,]
+```
+Here we are seperating the given training Dataset into Train an Test Datasets ,we will run the model on The Train Dataset and Test the accuracy on the Test dataset,Once the model is performing well pretty good tehn we move ahead to predict the 20 evaluation cases in the Evaluation Dataset.
+
+STEP 6:
+```{r}
+cor <- abs(sapply(colnames(train[, -ncol(train)]), function(x) cor(as.numeric(train[, x]), as.numeric(train$classe), method = "spearman")))
+```
+Looking at the correlation we could make out that none of the variables have a good correlation with the dependent variable,Hence we exclude chances of Liner mOdel.So next we will go for the Two other models i.e Boosting and Random Forest.
+
+STEP 7:
+
+###Boosting
+
+####since both the models take quite sometime to run i am not putting them in R{} command section
+
+gbm <- train(classe ~ ., method = "gbm", data = train, importance = T, trControl = trainControl(method = "cv", number = 10))
+predictions1 <- predict(gbm, newdata=test)
+confusionMatrix(predictions1,train$classe)
+
+
+Here the accuracy of the Test Data prediction was around 98%.
+
+###Random Forest
+
+
+Lets apply Boostong first 
+
+rf <- train(classe ~ ., method = "rf", data = train, importance = T, trControl = trainControl(method = "cv", number = 10))
+predictions2 <- predict(rf, newdata=test)
+confusionMatrix(predictions2,train$classe)
+
+
+Here the accuracy of the Test Data prediction was around 99%.
+
+
+STEP 8:
+
+###CONCLUSION
+
+Since model using Random forest has a higher accuracy than the model using Boosting,hence we select Random Forest for the test of 20 Different scenarios in the given Evaluation Dataset.Also wen tested the Random Forest model could exactly predict all the 20 Scenarios.
+Estimated out of sample error rate for the random forests model is 0.04% as reported by the final model
+
+Prepare the submission. (using COURSERA provided code)
+
+
+
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+
+x <- Evaluation_data
+x <- x[,-c("classe")]
+answers <- predict(rf, newdata=x)
+
+##answers
+
+pml_write_files(answers)
+
+
